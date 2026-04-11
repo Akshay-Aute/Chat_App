@@ -9,6 +9,7 @@ dotenv.config();
 const PORT = process.env.PORT;
 
 app.use(express.json()); // to extract JSON data form body;
+app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes); // http://localhost:3000/api/auth
 
 app.listen(PORT, () => {
