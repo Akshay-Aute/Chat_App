@@ -1,240 +1,247 @@
 # Chat App Revision Notes (Current Project State)
 
-Date: 2026-04-09
+Date: 2026-04-14
 
-This file is a step-by-step revision of what is implemented in your project so far.
+This revision file reflects the latest implementation status after current project progress.
 
-## 1. Project Structure Overview
+## 1. Project Snapshot
 
-- Monorepo style with two apps:
-- `backend/` -> Express + MongoDB + JWT auth API
-- `frontend/` -> React + Vite app (starter UI still mostly template)
+- Monorepo with two apps:
+- backend/ -> Express + MongoDB + JWT cookie auth
+- frontend/ -> React + Vite + React Router + Zustand
 
-Important folders:
+Current high-level status:
 
-- `backend/src/controllers` -> request handlers
-- `backend/src/routes` -> API routes
-- `backend/src/models` -> Mongoose schemas
-- `backend/src/lib` -> DB and utility helpers
-- `frontend/src` -> React entry and components
+- Backend auth is working (signup, login, logout, check auth).
+- Route protection middleware is implemented and used.
+- Message APIs (sidebar users, fetch messages, send message) are implemented.
+- Frontend routing/auth guard shell is implemented.
+- Frontend UI pages are mostly placeholders right now.
 
-## 2. Backend Setup (What is done)
+## 2. Backend Revision (Implemented)
 
-### 2.1 Dependencies installed
+### 2.1 Dependencies in use
 
-From `backend/package.json`:
+From backend/package.json:
 
-- `express` for server and routes
-- `mongoose` for MongoDB
-- `dotenv` for env config
-- `bcryptjs` for password hashing
-- `jsonwebtoken` for JWT
-- `cookie-parser` installed (not used yet in code)
-- `cloudinary` and `socket.io` installed (not used yet in code)
-- `nodemon` for development
+- express
+- mongoose
+- dotenv
+- bcryptjs
+- jsonwebtoken
+- cookie-parser
+- cors
+- cloudinary
+- socket.io (installed, real-time layer still pending)
 
-### 2.2 Server entry flow
+### 2.2 Server bootstrap flow
 
-File: `backend/src/index.js`
+File: backend/src/index.js
 
-Steps:
+Flow:
 
-1. Imports Express and dotenv.
-2. Imports DB connector and auth routes.
-3. Creates Express app.
-4. Loads environment variables using `dotenv.config()`.
-5. Uses `express.json()` to parse JSON body.
-6. Mounts auth routes at `/api/auth`.
-7. Starts server on `process.env.PORT`.
-8. After server starts, runs `connectDB()`.
+1. Loads dotenv config.
+2. Creates express app.
+3. Uses middleware: express.json, cookieParser, cors, express.urlencoded.
+4. CORS configured for frontend origin http://localhost:5173 with credentials true.
+5. Mounts routes:
 
-### 2.3 Database connection
+- /api/auth
+- /api/message
 
-File: `backend/src/lib/db.js`
+6. Starts server on process.env.PORT and then connects MongoDB.
 
-Steps:
+### 2.3 Auth routes and controllers
 
-1. Calls `mongoose.connect(process.env.MONGO_URI)`.
-2. Logs host on success.
-3. Logs error on failure.
-
-### 2.4 User model
-
-File: `backend/src/models/user.model.js`
-
-Schema fields:
-
-- `email`: required, unique
-- `fullName`: required
-- `password`: required, min length 6
-- `profilePic`: default empty string
-- Timestamps enabled (`createdAt`, `updatedAt`)
-
-### 2.5 Auth routes
-
-File: `backend/src/routes/auth.route.js`
+File: backend/src/routes/auth.route.js
 
 Endpoints:
 
-- `POST /api/auth/signup` -> `signup`
-- `POST /api/auth/login` -> `login`
-- `POST /api/auth/logout` -> `logout`
+- POST /api/auth/signup
+- POST /api/auth/login
+- POST /api/auth/logout
+- PUT /api/auth/update-profile (protected)
+- GET /api/auth/check (protected)
 
-### 2.6 JWT utility
+Controller status (backend/src/controllers/auth.controller.js):
 
-File: `backend/src/lib/utils.js`
+- signup: complete (validation, duplicate check, hashing, save, JWT cookie, response).
+- login: complete (find user, password compare, JWT cookie, response).
+- logout: complete (clears jwt cookie with maxAge 0).
+- updateProfile: uploads base64/image data to Cloudinary and updates profilePic.
+- checkAuth: returns req.user from middleware.
 
-`generateToken(userId, res)` does:
+### 2.4 Auth middleware
 
-1. Creates JWT with payload `{ userId }`.
-2. Uses `process.env.JWT_SECRET`.
-3. Sets token expiry to `7d`.
-4. Sends token in cookie named `jwt` with:
+File: backend/src/middleware/auth.middleware.js
 
-- `httpOnly: true`
-- `sameSite: "strict"`
-- `secure: process.env.NODE_ENV !== "development"`
-- `maxAge: 7 days`
+protectRoute does:
 
-### 2.7 Signup controller (implemented)
+1. Reads jwt cookie.
+2. Verifies JWT.
+3. Finds user and excludes password.
+4. Attaches user to req.user.
+5. Handles invalid/expired token responses.
 
-File: `backend/src/controllers/auth.controller.js`
+### 2.5 Messaging module
 
-Current signup flow:
+Route file: backend/src/routes/message.route.js
 
-1. Reads `fullName`, `email`, `password` from request body.
-2. Validates all fields are present.
-3. Validates password length >= 6.
-4. Checks if email already exists in DB.
-5. Generates salt and hashes password with bcrypt.
-6. Creates new user document.
-7. Generates JWT cookie.
-8. Saves new user.
-9. Returns created user data (without password).
+Endpoints:
 
-Current login/logout status:
+- GET /api/message/users (protected)
+- GET /api/message/:id (protected)
+- POST /api/message/send/:id (protected)
 
-- `login` returns placeholder response: `"login route"`
-- `logout` returns placeholder response: `"logout route"`
+Controller file: backend/src/controllers/message.controller.js
 
-## 3. Frontend Setup (What is done)
+Implemented behavior:
 
-### 3.1 Dependencies installed
+- getUsersForSidebar: returns all users except logged-in user.
+- getMessages: fetches chat history between two users sorted by createdAt ascending.
+- sendMessage: supports text and optional image, validates non-empty payload, uploads image to Cloudinary if provided, saves message.
 
-From `frontend/package.json`:
+Message model (backend/src/models/message.model.js):
 
-- `react`, `react-dom`
-- `vite`
-- ESLint setup with React hooks and refresh plugins
+- senderId (ObjectId ref User)
+- receiverId (ObjectId ref User)
+- text (trimmed string)
+- image (string URL)
+- timestamps enabled
 
-### 3.2 Frontend entry
+### 2.6 JWT + cookie utility
 
-File: `frontend/src/main.jsx`
+File: backend/src/lib/utils.js
 
-Steps:
+generateToken(userId, res):
 
-1. Imports `StrictMode` and `createRoot`.
-2. Imports global CSS (`index.css`).
-3. Renders `<App />` inside root div.
+- signs token with JWT_SECRET
+- expires in 7 days
+- sets httpOnly jwt cookie
+- sameSite strict
+- secure true outside development
 
-### 3.3 Current UI state
+## 3. Frontend Revision (Implemented)
 
-File: `frontend/src/App.jsx`
+### 3.1 Dependencies in use
 
-What exists now:
+From frontend/package.json:
 
-- Vite starter layout with hero and docs/social sections.
-- Local React state counter (`count`).
-- No API integration with backend yet.
-- No auth pages/forms yet.
+- react, react-dom
+- react-router-dom
+- axios
+- zustand
+- react-hot-toast
+- lucide-react
+- tailwindcss + daisyui
 
-### 3.4 Styling setup
+### 3.2 App routing and auth guard shell
+
+File: frontend/src/App.jsx
+
+Current flow:
+
+1. On mount, checkAuth is called from Zustand store.
+2. While auth check is running and no user is present, loader is shown.
+3. Route guards:
+
+- / shows HomePage only when authenticated
+- /signup and /login redirect to / when already authenticated
+- /profile requires auth
+- /setting is public in current setup
+
+### 3.3 API client and store
 
 Files:
 
-- `frontend/src/index.css`
-- `frontend/src/App.css`
+- frontend/src/lib/axios.js
+- frontend/src/store/useAuthStore.js
 
-Notes:
+Current status:
 
-- Detailed base styling is present.
-- Supports light/dark theme by media query.
-- Uses CSS variables and responsive media rules.
+- Axios instance points to http://localhost:3000/api with credentials enabled.
+- Zustand store contains:
+- authUser
+- isSigningUp
+- isLoggingIn
+- isUpdatingProfile
+- isCheckingAuth
+- checkAuth function implemented using GET /auth/check.
 
-## 4. End-to-End Request Flow Revision
+### 3.4 UI pages/components status
 
-For signup endpoint (`POST /api/auth/signup`):
+Files checked:
 
-1. Client sends `fullName`, `email`, `password` JSON.
-2. Route maps request to `signup` controller.
-3. Controller validates payload.
-4. Controller checks duplicate email in MongoDB.
-5. Password gets hashed.
-6. User document prepared and saved.
-7. JWT is generated and set in `jwt` cookie.
-8. Success response (`201`) returns user public fields.
+- frontend/src/components/Navbar.jsx
+- frontend/src/pages/HomePage.jsx
+- frontend/src/pages/LoginPage.jsx
+- frontend/src/pages/SignupPage.jsx
+- frontend/src/pages/ProfilePage.jsx
+- frontend/src/pages/SettingPage.jsx
 
-## 5. Commands to Remember for Revision
+Current state:
 
-From project root:
+- Components/pages exist.
+- Most pages are placeholder UI text.
+- Auth forms and full chat UI are not implemented yet.
 
-Backend dev:
+## 4. End-to-End Flow You Can Explain in Viva
 
-- `cd backend`
-- `npm install`
-- `npm run dev`
+### 4.1 Signup/Login/Auth check flow
 
-Frontend dev:
+1. Frontend sends credentials to /api/auth/signup or /api/auth/login.
+2. Backend validates and authenticates user.
+3. Backend sets jwt cookie (httpOnly).
+4. Frontend calls /api/auth/check on refresh/load.
+5. protectRoute validates cookie and returns current user.
+6. Frontend stores user in Zustand and applies route guards.
 
-- `cd frontend`
-- `npm install`
-- `npm run dev`
+### 4.2 Messaging flow
 
-## 6. Environment Variables Required
+1. Authenticated user requests /api/message/users for sidebar list.
+2. Selects a user and fetches /api/message/:id for chat history.
+3. Sends message via /api/message/send/:id with text and/or image.
+4. Backend persists message in MongoDB.
+5. Real-time push is pending (Socket.IO TODO remains).
 
-Backend needs these values in `.env`:
+## 5. Environment Variables Required
 
-- `PORT`
-- `MONGO_URI`
-- `JWT_SECRET`
-- `NODE_ENV` (optional but important for cookie `secure` behavior)
+Backend .env should include:
 
-## 7. Important Current Gaps (Very Important for viva/revision)
+- PORT
+- MONGO_URI
+- JWT_SECRET
+- NODE_ENV
+- CLOUDINARY_CLOUD_NAME
+- CLOUDINARY_API_KEY
+- CLOUDINARY_API_SECRET
 
-Not completed yet:
+## 6. Current Gaps / Next Work Items
 
-- Login logic (password check + token issuance) is pending.
-- Logout logic (clear cookie) is pending.
-- Frontend auth UI is pending.
-- Frontend-backend API connection is pending.
-- Middleware folder exists but is empty.
+Top pending implementation:
 
-Code quality caveats to revise:
+1. Complete frontend auth actions (signup/login/logout/update profile) in Zustand.
+2. Build real form UI for login/signup/profile pages.
+3. Build actual chat interface (sidebar, message list, input box, image preview).
+4. Integrate message APIs into frontend state.
+5. Add Socket.IO server-client integration for real-time messaging.
 
-- In signup validation, response is sent on invalid input but function does not immediately return in those checks.
-- In signup catch block, error is logged but failure response is not sent.
-- `cookie-parser` is installed but not used in `index.js`.
+Known code issue to fix soon:
 
-## 8. Quick Oral Revision (1-minute summary)
+- In updateProfile controller, User.findByIdAndUpdate is missing await, so response may return a pending promise instead of updated user data.
 
-- Backend is an Express API using MongoDB and JWT cookie auth.
-- User schema is ready and signup is mostly implemented with bcrypt hashing.
-- JWT is generated and set as `httpOnly` cookie for 7 days.
-- Auth routes are wired (`signup/login/logout`), but login/logout are still placeholders.
-- Frontend is currently Vite starter UI and not yet connected to backend.
+Lint/tooling note:
 
-## 9. Next Implementation Order (Step-by-step)
+- frontend/src/index.css has Unknown at rule @plugin in current problems list (editor/lint configuration mismatch with Tailwind v4 style directives).
 
-1. Complete `login` controller (find user, compare password, set JWT cookie).
-2. Complete `logout` controller (clear `jwt` cookie).
-3. Add proper early returns in signup validations.
-4. Add proper error response in catch blocks.
-5. Create frontend signup/login forms.
-6. Connect forms to `/api/auth/signup` and `/api/auth/login`.
-7. Add protected route logic and user state handling.
-8. Add profile image upload flow (Cloudinary) later.
-9. Add real-time chat with Socket.IO after auth is stable.
+## 7. Quick 1-Minute Revision Summary
+
+- Backend core for auth and basic messaging API is now implemented.
+- JWT cookie-based protection and checkAuth flow are working.
+- Cloudinary integration exists for profile/message images.
+- Frontend routing and auth-check structure is ready, but UI and store actions are still mostly pending.
+- Real-time chat via Socket.IO is the major next milestone.
 
 ---
 
-Use this file before coding sessions to quickly revise architecture, flow, and pending tasks.
+Use this file as your current revision baseline before each new coding session.

@@ -64,7 +64,7 @@ export const login = async (req, res) => {
     }
 
     generateToken(user._id, res);
-    res.status(200).json({
+    return res.status(200).json({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
@@ -99,11 +99,11 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Profile picture is required." });
     }
     const uploadResponse = await cloudinary.uploader.upload(profilePic);
-    const updatedUser = User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profilePic: uploadResponse.secure_url },
       { new: true },
-    );
+    ).select("-password");
 
     res.status(200).json(updatedUser);
   } catch (error) {
@@ -114,10 +114,14 @@ export const updateProfile = async (req, res) => {
 
 export const checkAuth = (req, res) => {
   try {
-    res.status(200).json(req.user);
+    res.status(200).json({
+      _id: req.user._id,
+      fullName: req.user.fullName,
+      email: req.user.email,
+      profilePic: req.user.profilePic,
+    });
   } catch (error) {
     console.log("Error in checkAuth COntroller");
     res.status(500).json({ message: "Internal Server Error." });
   }
 };
-
