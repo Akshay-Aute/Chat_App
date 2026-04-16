@@ -10,7 +10,6 @@ const app = express();
 dotenv.config();
 const PORT = process.env.PORT;
 
-app.use(express.json()); // to extract JSON data form body;
 app.use(cookieParser());
 app.use(
   cors({
@@ -18,7 +17,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10mb" })); // to extract JSON data form body;
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use("/api/auth", authRoutes); // http://localhost:3000/api/auth
 app.use("/api/messages", messageRoutes); // http://localhost:3000/api/message
 
