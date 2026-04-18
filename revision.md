@@ -1,212 +1,89 @@
-# Chat App Revision Notes (Current Project State)
+# Chat App Revision Notes (Final Pre-Deployment Status)
 
-Date: 2026-04-14
+Date: 2026-04-18
 
-This revision file reflects the latest implementation status after current project progress.
+This revision file reflects the current final implementation status. At this stage, the app is feature-complete for the planned scope, and deployment is the main remaining phase.
 
-## 1. Project Snapshot
+## 1. Final Snapshot
 
 - Monorepo with two apps:
-- backend/ -> Express + MongoDB + JWT cookie auth
-- frontend/ -> React + Vite + React Router + Zustand
+- backend: Express + MongoDB + JWT cookie auth + Cloudinary + Socket.IO
+- frontend: React (Vite) + React Router + Zustand + Tailwind/DaisyUI + Socket.IO client
 
-Current high-level status:
+Current completion status:
 
-- Backend auth is working (signup, login, logout, check auth).
-- Route protection middleware is implemented and used.
-- Message APIs (sidebar users, fetch messages, send message) are implemented.
-- Frontend routing/auth guard shell is implemented.
-- Frontend UI pages are mostly placeholders right now.
+- Authentication flow is complete (signup, login, logout, auth check, profile image update).
+- Chat flow is complete (sidebar users, chat history, send text/image).
+- Real-time messaging is integrated (server emit + client subscribe).
+- Online users presence is integrated (socket connection tracking + UI indicator).
+- Theme switching and main UI pages are implemented.
 
-## 2. Backend Revision (Implemented)
+## 2. Backend Status (Complete)
 
-### 2.1 Dependencies in use
+### 2.1 API and middleware
 
-From backend/package.json:
+- Auth routes and protected message routes are wired and working.
+- JWT cookie-based protection is active through middleware.
+- Cloudinary upload is used for profile and message images.
 
-- express
-- mongoose
-- dotenv
-- bcryptjs
-- jsonwebtoken
-- cookie-parser
-- cors
-- cloudinary
-- socket.io (installed, real-time layer still pending)
+### 2.2 Real-time layer
 
-### 2.2 Server bootstrap flow
+- Socket.IO server is initialized in lib/socket.js.
+- Server now boots using the shared HTTP server from the socket layer.
+- Connected users are tracked in memory via userSocketMap.
+- Online users list is broadcast through getOnlineUsers events.
+- sendMessage emits newMessage to the receiver socket when online.
 
-File: backend/src/index.js
+### 2.3 Data models
 
-Flow:
+- User model includes auth and profile fields.
+- Message model supports sender, receiver, text, image, and timestamps.
 
-1. Loads dotenv config.
-2. Creates express app.
-3. Uses middleware: express.json, cookieParser, cors, express.urlencoded.
-4. CORS configured for frontend origin http://localhost:5173 with credentials true.
-5. Mounts routes:
+## 3. Frontend Status (Complete)
 
-- /api/auth
-- /api/message
+### 3.1 Auth and routing
 
-6. Starts server on process.env.PORT and then connects MongoDB.
+- Auth check runs on app start.
+- Route guards for home and profile are in place.
+- Login/signup redirection behavior is implemented.
 
-### 2.3 Auth routes and controllers
+### 3.2 Chat and state management
 
-File: backend/src/routes/auth.route.js
+- Zustand auth store handles signup/login/logout/check/update profile.
+- Auth store opens socket connection after successful auth.
+- Auth store listens for getOnlineUsers and updates onlineUsers state.
+- Chat store fetches users/messages and sends new messages.
+- Chat store subscribes to newMessage socket events for live updates.
 
-Endpoints:
+### 3.3 UI coverage
 
-- POST /api/auth/signup
-- POST /api/auth/login
-- POST /api/auth/logout
-- PUT /api/auth/update-profile (protected)
-- GET /api/auth/check (protected)
+- Login and signup pages with validation/loading states.
+- Home page with sidebar and chat container layout.
+- Message input with image preview/send support.
+- Profile page with profile image update.
+- Settings page with theme selection.
+- Navbar with auth-aware actions.
 
-Controller status (backend/src/controllers/auth.controller.js):
+## 4. End-to-End Flow (Final)
 
-- signup: complete (validation, duplicate check, hashing, save, JWT cookie, response).
-- login: complete (find user, password compare, JWT cookie, response).
-- logout: complete (clears jwt cookie with maxAge 0).
-- updateProfile: uploads base64/image data to Cloudinary and updates profilePic.
-- checkAuth: returns req.user from middleware.
+### Auth flow
 
-### 2.4 Auth middleware
+1. User logs in or signs up from frontend.
+2. Backend validates and sets JWT cookie.
+3. Frontend checks session on refresh using auth/check.
+4. After auth, socket connection is established with userId.
 
-File: backend/src/middleware/auth.middleware.js
+### Chat flow
 
-protectRoute does:
+1. Sidebar users are fetched from messages/users.
+2. Selected chat history is fetched from messages/:id.
+3. Sending text/image posts to messages/send/:id.
+4. Backend saves message and emits newMessage to receiver.
+5. Receiver client appends message in real time.
 
-1. Reads jwt cookie.
-2. Verifies JWT.
-3. Finds user and excludes password.
-4. Attaches user to req.user.
-5. Handles invalid/expired token responses.
+## 5. Environment and Runtime Requirements
 
-### 2.5 Messaging module
-
-Route file: backend/src/routes/message.route.js
-
-Endpoints:
-
-- GET /api/message/users (protected)
-- GET /api/message/:id (protected)
-- POST /api/message/send/:id (protected)
-
-Controller file: backend/src/controllers/message.controller.js
-
-Implemented behavior:
-
-- getUsersForSidebar: returns all users except logged-in user.
-- getMessages: fetches chat history between two users sorted by createdAt ascending.
-- sendMessage: supports text and optional image, validates non-empty payload, uploads image to Cloudinary if provided, saves message.
-
-Message model (backend/src/models/message.model.js):
-
-- senderId (ObjectId ref User)
-- receiverId (ObjectId ref User)
-- text (trimmed string)
-- image (string URL)
-- timestamps enabled
-
-### 2.6 JWT + cookie utility
-
-File: backend/src/lib/utils.js
-
-generateToken(userId, res):
-
-- signs token with JWT_SECRET
-- expires in 7 days
-- sets httpOnly jwt cookie
-- sameSite strict
-- secure true outside development
-
-## 3. Frontend Revision (Implemented)
-
-### 3.1 Dependencies in use
-
-From frontend/package.json:
-
-- react, react-dom
-- react-router-dom
-- axios
-- zustand
-- react-hot-toast
-- lucide-react
-- tailwindcss + daisyui
-
-### 3.2 App routing and auth guard shell
-
-File: frontend/src/App.jsx
-
-Current flow:
-
-1. On mount, checkAuth is called from Zustand store.
-2. While auth check is running and no user is present, loader is shown.
-3. Route guards:
-
-- / shows HomePage only when authenticated
-- /signup and /login redirect to / when already authenticated
-- /profile requires auth
-- /setting is public in current setup
-
-### 3.3 API client and store
-
-Files:
-
-- frontend/src/lib/axios.js
-- frontend/src/store/useAuthStore.js
-
-Current status:
-
-- Axios instance points to http://localhost:3000/api with credentials enabled.
-- Zustand store contains:
-- authUser
-- isSigningUp
-- isLoggingIn
-- isUpdatingProfile
-- isCheckingAuth
-- checkAuth function implemented using GET /auth/check.
-
-### 3.4 UI pages/components status
-
-Files checked:
-
-- frontend/src/components/Navbar.jsx
-- frontend/src/pages/HomePage.jsx
-- frontend/src/pages/LoginPage.jsx
-- frontend/src/pages/SignupPage.jsx
-- frontend/src/pages/ProfilePage.jsx
-- frontend/src/pages/SettingPage.jsx
-
-Current state:
-
-- Components/pages exist.
-- Most pages are placeholder UI text.
-- Auth forms and full chat UI are not implemented yet.
-
-## 4. End-to-End Flow You Can Explain in Viva
-
-### 4.1 Signup/Login/Auth check flow
-
-1. Frontend sends credentials to /api/auth/signup or /api/auth/login.
-2. Backend validates and authenticates user.
-3. Backend sets jwt cookie (httpOnly).
-4. Frontend calls /api/auth/check on refresh/load.
-5. protectRoute validates cookie and returns current user.
-6. Frontend stores user in Zustand and applies route guards.
-
-### 4.2 Messaging flow
-
-1. Authenticated user requests /api/message/users for sidebar list.
-2. Selects a user and fetches /api/message/:id for chat history.
-3. Sends message via /api/message/send/:id with text and/or image.
-4. Backend persists message in MongoDB.
-5. Real-time push is pending (Socket.IO TODO remains).
-
-## 5. Environment Variables Required
-
-Backend .env should include:
+Backend .env keys required:
 
 - PORT
 - MONGO_URI
@@ -216,32 +93,22 @@ Backend .env should include:
 - CLOUDINARY_API_KEY
 - CLOUDINARY_API_SECRET
 
-## 6. Current Gaps / Next Work Items
+Frontend uses API URL:
 
-Top pending implementation:
+- http://localhost:3000/api
 
-1. Complete frontend auth actions (signup/login/logout/update profile) in Zustand.
-2. Build real form UI for login/signup/profile pages.
-3. Build actual chat interface (sidebar, message list, input box, image preview).
-4. Integrate message APIs into frontend state.
-5. Add Socket.IO server-client integration for real-time messaging.
+## 6. Final Pending Work (Deployment Only)
 
-Known code issue to fix soon:
+1. Prepare production environment variables for backend and frontend.
+2. Configure frontend API base URL for production domain.
+3. Configure CORS origin to deployed frontend URL.
+4. Deploy backend service and MongoDB connection.
+5. Deploy frontend static app.
+6. Run smoke tests for auth, chat, image upload, and socket events in production.
 
-- In updateProfile controller, User.findByIdAndUpdate is missing await, so response may return a pending promise instead of updated user data.
+## 7. Quick Final Summary
 
-Lint/tooling note:
-
-- frontend/src/index.css has Unknown at rule @plugin in current problems list (editor/lint configuration mismatch with Tailwind v4 style directives).
-
-## 7. Quick 1-Minute Revision Summary
-
-- Backend core for auth and basic messaging API is now implemented.
-- JWT cookie-based protection and checkAuth flow are working.
-- Cloudinary integration exists for profile/message images.
-- Frontend routing and auth-check structure is ready, but UI and store actions are still mostly pending.
-- Real-time chat via Socket.IO is the major next milestone.
-
----
-
-Use this file as your current revision baseline before each new coding session.
+- Core app features are implemented and working.
+- Real-time messaging and online user tracking are now integrated.
+- No major feature milestone remains before deployment.
+- Project status: Final build ready for deployment phase.

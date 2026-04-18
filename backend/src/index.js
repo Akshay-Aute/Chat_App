@@ -5,8 +5,8 @@ import cors from "cors";
 import { connectDB } from "./lib/db.js";
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
+import { app,server } from "./lib/socket.js";
 
-const app = express();
 dotenv.config();
 const PORT = process.env.PORT;
 
@@ -22,7 +22,7 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use("/api/auth", authRoutes); // http://localhost:3000/api/auth
 app.use("/api/messages", messageRoutes); // http://localhost:3000/api/message
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log("server is running on PORT:" + PORT);
   connectDB();
 });
