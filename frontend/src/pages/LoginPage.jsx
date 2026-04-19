@@ -1,21 +1,23 @@
-import React from "react";
 import { useState } from "react";
+import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
-import { useAuthStore } from "../store/useAuthStore.js";
-import AuthImagePattern  from "../components/AuthImagePattern";
-import { EyeOff, Eye, Loader2, Lock, Mail, MessageSquare } from "lucide-react";
-const LoginPage = () => {
+import { MessageSquare, Mail, Lock, EyeOff, Eye, Loader2 } from "lucide-react";
+import AuthImagePattern from "../components/AuthImagePattern";
+
+function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+
   const { login, isLoggingIn } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     login(formData);
   };
+
   return (
     <div className="h-screen grid lg:grid-cols-2">
       {/* Left Side - Form */}
@@ -24,10 +26,7 @@ const LoginPage = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="flex flex-col items-center gap-2 group">
-              <div
-                className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20
-              transition-colors"
-              >
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                 <MessageSquare className="w-6 h-6 text-primary" />
               </div>
               <h1 className="text-2xl font-bold mt-2">Welcome Back</h1>
@@ -37,17 +36,19 @@ const LoginPage = () => {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* EMAIL */}
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Email</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-base-content/40" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                  {/* FIXED ICON */}
+                  <Mail className="h-5 w-5 text-primary" />
                 </div>
                 <input
                   type="email"
-                  className={`input input-bordered w-full pl-10`}
+                  className="input input-bordered w-full pl-10"
                   placeholder="you@example.com"
                   value={formData.email}
                   onChange={(e) =>
@@ -57,17 +58,19 @@ const LoginPage = () => {
               </div>
             </div>
 
+            {/* PASSWORD */}
             <div className="form-control">
               <label className="label">
                 <span className="label-text font-medium">Password</span>
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-base-content/40" />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+                  {/* FIXED ICON */}
+                  <Lock className="h-5 w-5 text-primary" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
-                  className={`input input-bordered w-full pl-10`}
+                  className="input input-bordered w-full pl-10"
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={(e) =>
@@ -76,18 +79,19 @@ const LoginPage = () => {
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center z-10"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-base-content/40" />
+                    <EyeOff className="h-5 w-5 text-primary" />
                   ) : (
-                    <Eye className="h-5 w-5 text-base-content/40" />
+                    <Eye className="h-5 w-5 text-primary" />
                   )}
                 </button>
               </div>
             </div>
 
+            {/* BUTTON */}
             <button
               type="submit"
               className="btn btn-primary w-full"
@@ -115,7 +119,7 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Right Side - Image/Pattern */}
+      {/* Right Side */}
       <AuthImagePattern
         title={"Welcome back!"}
         subtitle={
@@ -124,6 +128,6 @@ const LoginPage = () => {
       />
     </div>
   );
-};
+}
 
 export default LoginPage;
